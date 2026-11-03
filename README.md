@@ -39,12 +39,10 @@ and it records the evidence for a person to review.
 
 ## How it works
 
-GPUs running the same model check each other's answers; the one that disagrees with all the others is
-the faulty one. Because the model is the same file on every GPU, a difference that follows one GPU is
-that GPU's hardware, not the model.
+GPUs running the same model check each other's answers; the one that disagrees with all the others is the faulty one. Because the model is the same file on every GPU, a difference that follows one GPU is that GPU's hardware, not the model.
 
-1. **One GPU answers** a test prompt and records how likely it found each token.
-2. **A different GPU re-scores the same token IDs** (teacher forcing, one fast pass, no new answer).
+1. **GPU A (The Generator)** receives the prompt and runs the full generation decode loop to produce the actual answer, recording how likely it found each token.
+2. **GPU B or GPU C (The Verifier / Checker)** takes over the verification role. These terms mean the exact same thing in Dual-Key and they do not run simultaneously for every request; instead, Dual-Key rotates this role among available peer GPUs over time. When GPU A finishes, its prompt and response token IDs are passed via the request Queue to one designated peer (e.g., GPU B this time, GPU C next time). That peer acts as the verifier/checker by running a single lightweight prefill pass (teacher forcing) to re-score the sequence (one fast pass, no new answer).
 3. **The gap** between the two sets of log-probabilities is the *token likelihood divergence*.
 4. **Majority vote:** with at least 3 GPUs, the one whose gap is high against every partner is the outlier.
 
